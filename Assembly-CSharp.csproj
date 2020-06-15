@@ -106,8 +106,11 @@
     <Compile Include="Assets\Scripts\GameManager_old.cs" />
     <Compile Include="Assets\Scripts\GoalEffect.cs" />
     <Compile Include="Assets\Scripts\Movement\KinematicMover.cs" />
+    <Compile Include="Assets\Scripts\Movement\KinematicMoverRootMotion.cs" />
     <Compile Include="Assets\Scripts\Movement\KinematicPlayer.cs" />
     <Compile Include="Assets\Scripts\Movement\KinematicPlayerCharacterController.cs" />
+    <Compile Include="Assets\Scripts\Movement\KinematicPlayerCharacterControllerRootMotion.cs" />
+    <Compile Include="Assets\Scripts\Movement\KinematicPlayerRootMotion.cs" />
     <Compile Include="Assets\Scripts\Movement\Mover.cs" />
     <Compile Include="Assets\Scripts\Objective.cs" />
     <Compile Include="Assets\Scripts\UI\BasicButton.cs" />
