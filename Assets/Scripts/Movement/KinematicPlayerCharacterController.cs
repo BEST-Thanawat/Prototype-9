@@ -1,4 +1,5 @@
 ﻿using KinematicCharacterController;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -42,6 +43,9 @@ public class KinematicPlayerCharacterController : MonoBehaviour, ICharacterContr
     [Header("Roration")]
     public float RotationSpeed = 6f;
 
+    [Header("Player")]
+    public KinematicPlayer kinematicPlayer;
+
     private Collider[] _probedColliders = new Collider[8];
     private Vector3 _moveInputVector;
     private Vector3 _lookInputVector;
@@ -55,18 +59,39 @@ public class KinematicPlayerCharacterController : MonoBehaviour, ICharacterContr
     private bool _isCrouching = false;
 
     private Quaternion _lookAtRotationOnly_Y = Quaternion.identity;
-    private KinematicMover kinematicMover;
+    private Quaternion tempQ = Quaternion.identity;
+
+    public float timeTakenDuringLerp = 1f;
+    private bool isLerping;
+    private Quaternion currentRotationLerp;
+    private Quaternion startPosition;
+    private Quaternion endPosition;
+    private float timeStartedLerping;
+
     private void Awake()
     {
-        kinematicMover = GetComponent<KinematicMover>();
-        if (kinematicMover == null) Debug.LogError("PlayerKinematicCharacterController: Object is null");
+        //kinematicPlayer = GetComponent<KinematicPlayer>();
+        if (kinematicPlayer == null) Debug.LogError("PlayerKinematicCharacterController: Object is null");
     }
     private void Start()
     {
         // Assign to motor
         Motor.CharacterController = this;
     }
-
+    void FixedUpdate()
+    {
+        if (isLerping)
+        {
+            float timeSinceStarted = Time.time - timeStartedLerping;
+            float percentageComplete = timeSinceStarted / timeTakenDuringLerp;
+            currentRotationLerp = Quaternion.Lerp(startPosition, endPosition, percentageComplete);
+            //When we've completed the lerp, we set _isLerping to false
+            if (percentageComplete >= 1.0f)
+            {
+                isLerping = false;
+            }
+        }
+    }
     /// <summary>
     /// This is called every frame by MyPlayer in order to tell the character what its inputs are
     /// </summary>
@@ -98,11 +123,11 @@ public class KinematicPlayerCharacterController : MonoBehaviour, ICharacterContr
         if (inputs.CrouchDown)
         {
             // ***Set trigger to animation to crouch
-            kinematicMover.CrouchAnimation();
+            kinematicPlayer.CrouchAnimation();
 
             _shouldBeCrouching = true;
 
-            if (!_isCrouching && !kinematicMover.IsSprinting())
+            if (!_isCrouching && !kinematicPlayer.IsSprinting())
             {
                 _isCrouching = true;
                 Motor.SetCapsuleDimensions(0.7f, 1f, 0.7f);
@@ -130,6 +155,16 @@ public class KinematicPlayerCharacterController : MonoBehaviour, ICharacterContr
     {
     }
 
+    
+    
+    void StartLerping(Quaternion quaternion)
+    {
+        isLerping = true;
+        timeStartedLerping = Time.time;
+
+        startPosition = transform.rotation;
+        endPosition = quaternion;
+    }
     /// <summary>
     /// (Called by KinematicCharacterMotor during its update cycle)
     /// This is where you tell your character what its rotation should be right now. 
@@ -138,20 +173,23 @@ public class KinematicPlayerCharacterController : MonoBehaviour, ICharacterContr
     public void UpdateRotation(ref Quaternion currentRotation, float deltaTime)
     {
         // ***Tell Kinematic to ratate character
-        currentRotation = Quaternion.Lerp(transform.rotation, _lookAtRotationOnly_Y, RotationSpeed * Time.deltaTime);
+        //currentRotation = Quaternion.Lerp(transform.rotation, _lookAtRotationOnly_Y, RotationSpeed * Time.deltaTime);
 
-        //if (Input.GetMouseButton(0))
-        //{
-        //    Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-        //    RaycastHit hit;
-        //    if (Physics.Raycast(ray, out hit))
-        //    {
-        //        Vector3 direction = hit.point - transform.position;
-        //        LookAtRotationOnly_Y = Quaternion.Euler(transform.rotation.eulerAngles.x, Quaternion.LookRotation(direction).eulerAngles.y, transform.rotation.eulerAngles.z);
-        //        //currentRotation = Quaternion.Lerp(transform.rotation, LookAtRotationOnly_Y, RotationSpeed * Time.deltaTime);
-        //    }
-        //}
-        //currentRotation = Quaternion.Lerp(transform.rotation, LookAtRotationOnly_Y, RotationSpeed * Time.deltaTime);
+        // ***Tell Kinematic to ratate character
+        if ((Input.GetAxis("Mouse X") < 0 || Input.GetAxis("Mouse X") > 0) && (!kinematicPlayer.IsRunning() && !kinematicPlayer.IsSprinting() && !kinematicPlayer.IsCrouching()))
+        {
+            StartLerping(kinematicPlayer.GetRotation());
+        }
+        
+        if (isLerping)
+        {
+            currentRotation = currentRotationLerp;
+        }
+        else
+        {
+            _lookAtRotationOnly_Y = kinematicPlayer.GetHitPointFromMouse();
+            currentRotation = Quaternion.Lerp(transform.rotation, _lookAtRotationOnly_Y, RotationSpeed * Time.deltaTime);
+        }
     }
 
     /// <summary>
@@ -164,7 +202,7 @@ public class KinematicPlayerCharacterController : MonoBehaviour, ICharacterContr
         Vector3 targetMovementVelocity = Vector3.zero;
         if (Motor.GroundingStatus.IsStableOnGround)
         {
-            currentVelocity = kinematicMover.GetVelocity();
+            currentVelocity = kinematicPlayer.GetVelocity();
             // Reorient velocity on slope
             //currentVelocity = Motor.GetDirectionTangentToSurface(currentVelocity, Motor.GroundingStatus.GroundNormal) * currentVelocity.magnitude;
 
@@ -208,7 +246,7 @@ public class KinematicPlayerCharacterController : MonoBehaviour, ICharacterContr
         if (_jumpRequested)
         {
             // ***Set trigger to animation to jump
-            kinematicMover.JumpAnimation();
+            kinematicPlayer.JumpAnimation();
 
             // Handle double jump
             if (AllowDoubleJump)

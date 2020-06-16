@@ -19,10 +19,14 @@ public class KinematicMover : MonoBehaviour
     private Animator animator;
     private NavMeshAgent navMeshAgent;
 
-    private RaycastHit hit;
-    private Quaternion lookAtRotationOnly_Y = Quaternion.identity;
+   
+    
     private bool isCrouching = false;
     private bool isSprinting = false;
+    private bool isRunning = false;
+
+    Quaternion returnQuatation = Quaternion.identity;
+
     private void Awake()
     {
         animator = GetComponent<Animator>();
@@ -125,6 +129,11 @@ public class KinematicMover : MonoBehaviour
             isCrouching = !isCrouching;
         }
     }
+    public void TurnAnimation(float rotation)
+    {
+        animator.SetFloat("turnSpeed", rotation, 0.1f, Time.deltaTime);
+    }
+
     public bool IsSprinting()
     {
         return isSprinting;
@@ -133,23 +142,11 @@ public class KinematicMover : MonoBehaviour
     {
         return isCrouching;
     }
-    public Quaternion GetHitPointFromMouse()
+    public bool IsRunning()
     {
-        if (Input.GetMouseButton(0))
-        {
-            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-            if (Physics.Raycast(ray, out hit))
-            {
-                // ***Calculate direction from tranform to mouse click
-                Vector3 direction = hit.point.magnitude == 0 ? hit.point : hit.point - gameObject.transform.position;
-
-                // ***Rotate only y axis
-                lookAtRotationOnly_Y = Quaternion.Euler(gameObject.transform.rotation.eulerAngles.x, Quaternion.LookRotation(direction).eulerAngles.y, gameObject.transform.rotation.eulerAngles.z);
-                return lookAtRotationOnly_Y;
-            }
-        }
-        return lookAtRotationOnly_Y;
+        return isRunning;
     }
+    
     // ***Rotate character by mouse moving
     public Quaternion GetRotation()
     {
@@ -164,7 +161,6 @@ public class KinematicMover : MonoBehaviour
             targetRotation = Quaternion.LookRotation(targetPoint - transform.position);
             targetPoint.x = 0;
             targetPoint.z = 0;
-            //playerObj.transform.rotation = Quaternion.Slerp(playerObj.transform.rotation, targetRotation, 7f * Time.deltaTime);
         }
         return targetRotation;
     }

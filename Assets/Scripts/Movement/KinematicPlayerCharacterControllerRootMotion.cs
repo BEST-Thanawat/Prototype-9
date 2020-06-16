@@ -66,11 +66,11 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
     private Quaternion _rootMotionRotationDelta;
 
     private Quaternion _lookAtRotationOnly_Y = Quaternion.identity;
-    private KinematicMoverRootMotion kinematicMover;
+    private KinematicMoverRootMotion kinematicMoverRootMotion;
     private void Awake()
     {
-        kinematicMover = GetComponent<KinematicMoverRootMotion>();
-        if (kinematicMover == null) Debug.LogError("PlayerKinematicCharacterControllerRootMotion: Object is null");
+        kinematicMoverRootMotion = GetComponent<KinematicMoverRootMotion>();
+        if (kinematicMoverRootMotion == null) Debug.LogError("PlayerKinematicCharacterControllerRootMotion: Object is null");
     }
     private void Start()
     {
@@ -83,11 +83,11 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
 
     private void Update()
     {
-        Debug.Log(_forwardAxis);
         // Handle animation
         _forwardAxis = Mathf.Lerp(_forwardAxis, _targetForwardAxis, 1f - Mathf.Exp(-ForwardAxisSharpness * Time.deltaTime));
         _rightAxis = Mathf.Lerp(_rightAxis, _targetRightAxis, 1f - Mathf.Exp(-TurnAxisSharpness * Time.deltaTime));
-        CharacterAnimator.SetFloat("forwardSpeed", _forwardAxis);
+
+        CharacterAnimator.SetFloat("forwardSpeed", kinematicMoverRootMotion.IsRunning() ? Mathf.Clamp(_forwardAxis, -1f, 0.75f) : _forwardAxis);
         CharacterAnimator.SetFloat("turnSpeed", _rightAxis);
         CharacterAnimator.SetBool("onGround", Motor.GroundingStatus.IsStableOnGround);
     }

@@ -22,6 +22,7 @@ public class KinematicMoverRootMotion : MonoBehaviour
     private RaycastHit hit;
     private Quaternion lookAtRotationOnly_Y = Quaternion.identity;
     private bool isCrouching = false;
+    private bool isRunning = false;
     private bool isSprinting = false;
     private void Awake()
     {
@@ -29,7 +30,57 @@ public class KinematicMoverRootMotion : MonoBehaviour
         //navMeshAgent = GetComponent<NavMeshAgent>();
         //navMeshAgent.speed = runSpeed;
     }
+    private void Update()
+    {
+        CheckMovementStatus();
+    }
 
+    private void CheckMovementStatus()
+    {
+        if (Input.anyKey)
+        {
+            Debug.Log("running" + " " +isRunning);
+            Debug.Log("springting" + " " + isSprinting);
+            if (Input.GetKey(KeyCode.C)) isCrouching = true;
+
+            if (Input.GetAxis(KinematicPlayerRootMotion.VerticalInput) > 0)
+            {
+                isRunning = true;
+            }
+            else
+            {
+                isRunning = false;
+            }
+            
+            if (Input.GetAxis(KinematicPlayerRootMotion.VerticalInput) > 0 && Input.GetKey(KeyCode.LeftShift))
+            {
+                isSprinting = true;
+                isRunning = false;
+            }
+            else
+            {
+                isSprinting = false;
+            }
+        }
+        else
+        {
+            isRunning = false;
+            isSprinting = false;
+        }
+    }
+    public bool IsCrouching()
+    {
+        return isCrouching;
+    }
+    public bool IsRunning()
+    {
+        return isRunning;
+    }
+    public bool IsSprinting()
+    {
+        return isSprinting;
+    }
+    
     //private void Update()
     //{
     //    if (Input.GetMouseButton(0))
@@ -125,14 +176,7 @@ public class KinematicMoverRootMotion : MonoBehaviour
             isCrouching = !isCrouching;
         }
     }
-    public bool IsSprinting()
-    {
-        return isSprinting;
-    }
-    public bool IsCrouching()
-    {
-        return isCrouching;
-    }
+    
     public Quaternion GetHitPointFromMouse()
     {
         if (Input.GetMouseButton(0))
