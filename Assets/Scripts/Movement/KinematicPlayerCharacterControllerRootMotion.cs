@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
 public struct PlayerCharacterInputsRootMotion
 {
@@ -11,7 +12,14 @@ public struct PlayerCharacterInputsRootMotion
     public bool JumpDown;
     public bool CrouchDown;
     public bool CrouchUp;
-    public Quaternion Destination;
+    public Vector3 Destination;
+    public Quaternion Rotation;
+    public RaycastHit MoveToPosition;
+    public bool MouseClick;
+    public float WalkSpeed;
+    public float RunSpeed;
+    public float SprintSpeed;
+    public float CrouchSpeed;
 }
 
 public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, ICharacterController
@@ -43,6 +51,7 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
     [Header("Misc")]
     public Vector3 Gravity = new Vector3(0, -30f, 0);
     public Transform MeshRoot;
+    public KinematicPlayerRootMotion KinematicPlayerRootMotion;
 
     [Header("Roration")]
     public float RotationSpeed = 6f;
@@ -65,15 +74,38 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
     private Vector3 _rootMotionPositionDelta;
     private Quaternion _rootMotionRotationDelta;
 
-    private Quaternion _lookAtRotationOnly_Y = Quaternion.identity;
-    private KinematicMoverRootMotion kinematicMoverRootMotion;
+    //private Vector3 destination;
+    //private Quaternion rotation;
+    //private RaycastHit movePosition;
+    //private float walkSpeed;
+    //private float runSpeed;
+    //private float sprintSpeed;
+    //private float crouchSpeed;
+    //private Vector2 smoothDeltaPosition = Vector2.zero;
+    //private Vector2 velocity = Vector2.zero;
+    //private bool mouseClick;
+
+    Vector3 direction = Vector3.zero;
+    public int ObjectiveAsSpeed = -1;
+    public float MovementSpeed = 0.5f;
+
+    public NavMeshAgent navAgent;
+    private Quaternion rotate = Quaternion.identity;
+
+    //Moving navmesh
+    [SerializeField] float m_MovingTurnSpeed = 360;
+    [SerializeField] float m_StationaryTurnSpeed = 180;
+    float m_TurnAmount;
+    float m_ForwardAmount;
+
     private void Awake()
     {
-        kinematicMoverRootMotion = GetComponent<KinematicMoverRootMotion>();
-        if (kinematicMoverRootMotion == null) Debug.LogError("PlayerKinematicCharacterControllerRootMotion: Object is null");
     }
+
     private void Start()
     {
+        navAgent.updateRotation = false;
+
         _rootMotionPositionDelta = Vector3.zero;
         _rootMotionRotationDelta = Quaternion.identity;
 
@@ -83,13 +115,20 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
 
     private void Update()
     {
-        // Handle animation
-        _forwardAxis = Mathf.Lerp(_forwardAxis, _targetForwardAxis, 1f - Mathf.Exp(-ForwardAxisSharpness * Time.deltaTime));
-        _rightAxis = Mathf.Lerp(_rightAxis, _targetRightAxis, 1f - Mathf.Exp(-TurnAxisSharpness * Time.deltaTime));
+        if (Input.GetMouseButtonDown(0))
+        {
+            navAgent.SetDestination(KinematicPlayerRootMotion.GetResultRaycastHit().point);
+        }
 
-        CharacterAnimator.SetFloat("forwardSpeed", kinematicMoverRootMotion.IsRunning() ? Mathf.Clamp(_forwardAxis, -1f, 0.75f) : _forwardAxis);
-        CharacterAnimator.SetFloat("turnSpeed", _rightAxis);
-        CharacterAnimator.SetBool("onGround", Motor.GroundingStatus.IsStableOnGround);
+        if (navAgent.remainingDistance > navAgent.stoppingDistance)
+        {
+            Move(navAgent.desiredVelocity, false, false);
+        }
+        else
+        {
+            Move(Vector3.zero, false, false);
+            //StopMoving();
+        }
     }
 
     /// <summary>
@@ -101,7 +140,14 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
         _targetForwardAxis = inputs.MoveAxisForward;
         _targetRightAxis = inputs.MoveAxisRight;
 
-        //_lookAtRotationOnly_Y = inputs.Destination;
+        //rotation = inputs.Rotation;
+        //destination = inputs.Destination;
+        //movePosition = inputs.MoveToPosition;
+        //walkSpeed = inputs.WalkSpeed;
+        //runSpeed = inputs.RunSpeed;
+        //sprintSpeed = inputs.SprintSpeed;
+        //crouchSpeed = inputs.CrouchSpeed;
+        //mouseClick = inputs.MouseClick;
     }
 
     /// <summary>
@@ -119,9 +165,8 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
     /// </summary>
     public void UpdateRotation(ref Quaternion currentRotation, float deltaTime)
     {
-        currentRotation = _rootMotionRotationDelta * currentRotation;
+        currentRotation = rotate * currentRotation;
     }
-
     /// <summary>
     /// (Called by KinematicCharacterMotor during its update cycle)
     /// This is where you tell your character what its velocity should be right now. 
@@ -129,8 +174,10 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
     /// </summary>
     public void UpdateVelocity(ref Vector3 currentVelocity, float deltaTime)
     {
+        currentVelocity = navAgent.desiredVelocity;
         if (Motor.GroundingStatus.IsStableOnGround)
         {
+            currentVelocity = Vector3.zero;
             if (deltaTime > 0)
             {
                 // The final velocity is the velocity from root motion reoriented on the ground plane
@@ -170,6 +217,11 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
         // Reset root motion deltas
         _rootMotionPositionDelta = Vector3.zero;
         _rootMotionRotationDelta = Quaternion.identity;
+
+        if (m_ForwardAmount == 0)
+            rotate = CharacterLookAtMouse();
+        else
+            rotate = GetRotate();
     }
 
     public bool IsColliderValidForCollisions(Collider coll)
@@ -206,6 +258,55 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
         // Accumulate rootMotion deltas between character updates 
         _rootMotionPositionDelta += CharacterAnimator.deltaPosition;
         _rootMotionRotationDelta = CharacterAnimator.deltaRotation * _rootMotionRotationDelta;
+    }
 
+
+
+
+    // ***Navmesh navigator and animator
+    public void Move(Vector3 move, bool crouch, bool jump)
+    {
+        // convert the world relative moveInput vector into a local-relative
+        // turn amount and forward amount required to head in the desired
+        // direction.
+        if (move.magnitude > 1f) move.Normalize();
+        move = transform.InverseTransformDirection(move);
+
+        m_TurnAmount = Mathf.Atan2(move.x, move.z);
+        m_ForwardAmount = move.z;
+
+        // send input and other state parameters to the animator
+        UpdateAnimator();
+    }
+    void UpdateAnimator()
+    {
+        // update the animator parameters
+        CharacterAnimator.SetFloat("Forward", m_ForwardAmount, 0.1f, Time.deltaTime);
+        CharacterAnimator.SetFloat("Turn", m_TurnAmount, 0.1f, Time.deltaTime);
+        CharacterAnimator.speed = 1;
+    }
+    public Quaternion GetRotate()
+    {
+        // help the character turn faster (this is in addition to root rotation in the animation)
+        float turnSpeed = Mathf.Lerp(m_StationaryTurnSpeed, m_MovingTurnSpeed, m_ForwardAmount);
+        return Quaternion.Euler(0, m_TurnAmount * turnSpeed * Time.deltaTime, 0);
+    }
+
+    // ***Character look at mouse
+    public Quaternion CharacterLookAtMouse()
+    {
+        Vector3 move = transform.InverseTransformPoint(KinematicPlayerRootMotion.GetResultRaycastHit().point);
+        m_TurnAmount = Mathf.Atan2(move.x, move.z);
+        float turnSpeed = Mathf.Lerp(m_StationaryTurnSpeed, m_MovingTurnSpeed, m_ForwardAmount);
+        return Quaternion.Euler(0, m_TurnAmount * turnSpeed * Time.deltaTime, 0);
+    }
+    public void StopMoving()
+    {
+        //CheckGroundStatus();
+        Vector3 stop = Vector3.zero;
+
+        m_TurnAmount = Mathf.Atan2(stop.x, stop.z);
+        m_ForwardAmount = stop.z;
+        UpdateAnimator();
     }
 }

@@ -112,6 +112,8 @@
     <Compile Include="Assets\Scripts\Movement\KinematicPlayerCharacterControllerRootMotion.cs" />
     <Compile Include="Assets\Scripts\Movement\KinematicPlayerRootMotion.cs" />
     <Compile Include="Assets\Scripts\Movement\Mover.cs" />
+    <Compile Include="Assets\Scripts\Movement\TestMover.cs" />
+    <Compile Include="Assets\Scripts\Movement\ThirdPersonCharacter.cs" />
     <Compile Include="Assets\Scripts\Objective.cs" />
     <Compile Include="Assets\Scripts\UI\BasicButton.cs" />
     <Compile Include="Assets\Scripts\UI\Popup.cs" />

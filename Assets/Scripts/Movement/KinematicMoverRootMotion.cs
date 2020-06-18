@@ -17,7 +17,6 @@ public class KinematicMoverRootMotion : MonoBehaviour
     //private bool isGrounded;
     //private float distToGround = 0.5f;
     private Animator animator;
-    private NavMeshAgent navMeshAgent;
 
     private RaycastHit hit;
     private Quaternion lookAtRotationOnly_Y = Quaternion.identity;
@@ -27,8 +26,6 @@ public class KinematicMoverRootMotion : MonoBehaviour
     private void Awake()
     {
         animator = GetComponent<Animator>();
-        //navMeshAgent = GetComponent<NavMeshAgent>();
-        //navMeshAgent.speed = runSpeed;
     }
     private void Update()
     {

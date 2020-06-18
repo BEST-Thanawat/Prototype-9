@@ -14,59 +14,49 @@ public class KinematicPlayerRootMotion : MonoBehaviour
     public const string HorizontalInput = "Horizontal";
     public const string VerticalInput = "Vertical";
 
-    //private Quaternion targetRotation;
+    [SerializeField]
+    public float runSpeed = 3.25f, sprintSpeed = 5.841f, crouchSpeed = 0.56f;
+    private RaycastHit hit;
+    private Quaternion lookAtRotationOnly_Y = Quaternion.identity;
+    public float timeTakenDuringLerp = 1f;
+
+    public float distanceToMove = 10;
+    private bool isLerping;
+    private Quaternion startPosition;
+    private Quaternion endPosition;
+    private Quaternion rotationAngle;
+    private float timeStartedLerping;
+    private Ray ray;
+    private bool mouseClick;
     private void Start()
     {
-        //Cursor.lockState = CursorLockMode.Locked;
-
-        //// Tell camera to follow transform
-        //OrbitCamera.SetFollowTransform(CameraFollowPoint);
-
-        //// Ignore the character's collider(s) for camera obstruction checks
-        //OrbitCamera.IgnoredColliders.Clear();
-        //OrbitCamera.IgnoredColliders.AddRange(Character.GetComponentsInChildren<Collider>());
     }
 
     private void Update()
     {
-        //if (Input.GetMouseButtonDown(0))
-        //{
-        //    Cursor.lockState = CursorLockMode.Locked;
-        //}
-
-        //HandleCameraInput();
+        GetRaycastHit();
+        DetectMouseMovement();
         HandleCharacterInput();
+
+        mouseClick = false;
     }
 
-    private void HandleCameraInput()
+    void FixedUpdate()
     {
-        // Create the look input vector for the camera
-        float mouseLookAxisUp = Input.GetAxisRaw(MouseYInput);
-        float mouseLookAxisRight = Input.GetAxisRaw(MouseXInput);
-        Vector3 lookInputVector = new Vector3(mouseLookAxisRight, mouseLookAxisUp, 0f);
-
-        // Prevent moving the camera while the cursor isn't locked
-        if (Cursor.lockState != CursorLockMode.Locked)
+        if (isLerping)
         {
-            lookInputVector = Vector3.zero;
+            float timeSinceStarted = Time.time - timeStartedLerping;
+            float percentageComplete = timeSinceStarted / timeTakenDuringLerp;
+
+            rotationAngle = Quaternion.Lerp(startPosition, endPosition, percentageComplete);
+
+            //When we've completed the lerp, we set _isLerping to false
+            if (percentageComplete >= 1.0f)
+            {
+                isLerping = false;
+            }
         }
-
-        // Input for zooming the camera (disabled in WebGL because it can cause problems)
-        float scrollInput = -Input.GetAxis(MouseScrollInput);
-#if UNITY_WEBGL
-        scrollInput = 0f;
-#endif
-
-        // Apply inputs to the camera
-        //OrbitCamera.UpdateWithInput(Time.deltaTime, scrollInput, lookInputVector);
-
-        // Handle toggling zoom level
-        //if (Input.GetMouseButtonDown(1))
-        //{
-        //    OrbitCamera.TargetDistance = (OrbitCamera.TargetDistance == 0f) ? OrbitCamera.DefaultDistance : 0f;
-        //}
     }
-
     private void HandleCharacterInput()
     {
         PlayerCharacterInputsRootMotion characterInputs = new PlayerCharacterInputsRootMotion();
@@ -76,14 +66,92 @@ public class KinematicPlayerRootMotion : MonoBehaviour
         characterInputs.MoveAxisRight = Input.GetAxisRaw(HorizontalInput);
         //characterInputs.CameraRotation = OrbitCamera.Transform.rotation;
         characterInputs.JumpDown = Input.GetKeyDown(KeyCode.Space);
-
+        
         // ***Get Physics.Raycast hit.point
-        characterInputs.Destination = Character.GetComponent<KinematicMoverRootMotion>().GetHitPointFromMouse();
+        characterInputs.Destination = GetHitPointFromMouse();
+        // ***Get rotation angle
+        characterInputs.Rotation = rotationAngle;
+
+        characterInputs.MoveToPosition = hit;
+        characterInputs.WalkSpeed = runSpeed;
+        characterInputs.MouseClick = mouseClick;
 
         // ***Crouch
         characterInputs.CrouchDown = Input.GetKeyDown(KeyCode.C);
         characterInputs.CrouchUp = Input.GetKeyUp(KeyCode.C);
         // Apply inputs to character
         Character.SetInputs(ref characterInputs);
+    }
+
+
+
+
+
+    public void GetRaycastHit()
+    {
+        if (Input.GetMouseButton(0))
+        {
+            mouseClick = true;
+            
+            Ray ray2 = Camera.main.ScreenPointToRay(Input.mousePosition);
+            Physics.Raycast(ray2, out hit);
+        }
+    }
+
+    public Vector3 GetHitPointFromMouse()
+    {
+        // ***Calculate direction from tranform to mouse click
+        Vector3 direction = hit.point.magnitude == 0 ? hit.point : hit.point - Character.transform.position;
+
+        // ***Rotate only y axis
+        lookAtRotationOnly_Y = Quaternion.Euler(Character.transform.rotation.eulerAngles.x, Quaternion.LookRotation(direction).eulerAngles.y, Character.transform.rotation.eulerAngles.z);
+        return hit.point;
+    }
+
+    public void DetectMouseMovement()
+    {
+        if (Input.GetAxis("Mouse X") < 0 || Input.GetAxis("Mouse X") > 0) 
+        {
+            ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+            // ***Set raycast hit for character rotation.
+            Physics.Raycast(ray, out hit);
+
+            StartLerping();
+        }
+    }
+    public Quaternion GetRotation()
+    {
+        Plane playerPlane = new Plane(Vector3.up, Character.transform.position);
+        float hitDist = 0f;
+        Quaternion targetRotation = Quaternion.identity;
+
+        if (playerPlane.Raycast(ray, out hitDist))
+        {
+            Vector3 targetPoint = ray.GetPoint(hitDist);
+            targetRotation = Quaternion.LookRotation(targetPoint - Character.transform.position);
+            targetPoint.x = 0;
+            targetPoint.z = 0;
+        }
+        return targetRotation;
+    }
+
+    void StartLerping()
+    {
+        isLerping = true;
+        timeStartedLerping = Time.time;
+
+        //We set the start position to the current position, and the finish to 10 spaces in the 'forward' direction
+        startPosition = Character.transform.rotation;
+        endPosition = GetRotation();
+    }
+
+    public Quaternion GetResultRotation()
+    {
+        return rotationAngle;
+    }
+
+    public RaycastHit GetResultRaycastHit()
+    {
+        return hit;
     }
 }

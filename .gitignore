@@ -346,3 +346,5 @@ healthchecksdb
 /Assets/Game/Characters
 /Assets/Materials
 /Assets/Scenes
+/Assets/Scripts/Animator
+/Assets/Scripts/Animation
