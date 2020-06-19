@@ -10,8 +10,9 @@ public struct PlayerCharacterInputsRootMotion
     public float MoveAxisRight;
     //public Quaternion CameraRotation;
     public bool JumpDown;
-    public bool CrouchDown;
-    public bool CrouchUp;
+    public bool Crouch;
+    //public bool CrouchDown;
+    //public bool CrouchUp;
     public Vector3 Destination;
     public Quaternion Rotation;
     public RaycastHit MoveToPosition;
@@ -22,6 +23,7 @@ public struct PlayerCharacterInputsRootMotion
     public float CrouchSpeed;
 }
 
+[RequireComponent(typeof(NavMeshAgent))]
 public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, ICharacterController
 {
     public KinematicCharacterMotor Motor;
@@ -88,8 +90,7 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
     Vector3 direction = Vector3.zero;
     public int ObjectiveAsSpeed = -1;
     public float MovementSpeed = 0.5f;
-
-    public NavMeshAgent navAgent;
+    private NavMeshAgent navAgent;
     private Quaternion rotate = Quaternion.identity;
 
     //Moving navmesh
@@ -97,13 +98,20 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
     [SerializeField] float m_StationaryTurnSpeed = 180;
     float m_TurnAmount;
     float m_ForwardAmount;
-
+    Vector3 m_GroundNormal;
+    bool m_IsGrounded;
+    bool m_Crouching;
+    bool m_jumping;
+    [SerializeField] float m_GroundCheckDistance = 0.2f;
+    [SerializeField] float m_AnimSpeedMultiplier = 1f;
     private void Awake()
     {
     }
 
     private void Start()
     {
+        navAgent = GetComponent<NavMeshAgent>();
+        navAgent.stoppingDistance = 0.2f;
         navAgent.updateRotation = false;
 
         _rootMotionPositionDelta = Vector3.zero;
@@ -117,7 +125,12 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
     {
         if (Input.GetMouseButtonDown(0))
         {
-            navAgent.SetDestination(KinematicPlayerRootMotion.GetResultRaycastHit().point);
+            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+            RaycastHit hit;
+            if (Physics.Raycast(ray, out hit, 100f))
+            {
+                navAgent.SetDestination(hit.point);
+            } 
         }
 
         if (navAgent.remainingDistance > navAgent.stoppingDistance)
@@ -126,8 +139,9 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
         }
         else
         {
-            Move(Vector3.zero, false, false);
-            //StopMoving();
+            //Move(navAgent.desiredVelocity, false, false);
+            //Move(Vector3.zero, false, false);
+            StopMoving();
         }
     }
 
@@ -139,6 +153,35 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
         // Axis inputs
         _targetForwardAxis = inputs.MoveAxisForward;
         _targetRightAxis = inputs.MoveAxisRight;
+
+        // Crouching input
+        if (inputs.Crouch)
+        {
+            m_Crouching = true;
+            if (m_Crouching)
+            {
+                Motor.SetCapsuleDimensions(0.7f, 1f, 0.7f);
+                navAgent.height = 1.2f;
+                //MeshRoot.localScale = new Vector3(1f, 0.5f, 1f);
+            }
+        }
+        else
+        {
+            m_Crouching = false;
+            Motor.SetCapsuleDimensions(0.5f, 2f, 1f);
+            navAgent.height = 2f;
+        }
+
+        if (inputs.JumpDown)
+        {
+            m_jumping = true;
+            _timeSinceJumpRequested = 0f;
+            _jumpRequested = true;
+        }
+        else
+        {
+            m_jumping = false;
+        }
 
         //rotation = inputs.Rotation;
         //destination = inputs.Destination;
@@ -206,6 +249,48 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
             // Drag
             currentVelocity *= (1f / (1f + (Drag * deltaTime)));
         }
+
+        // Handle jumping
+        _jumpedThisFrame = false;
+        _timeSinceJumpRequested += deltaTime;
+        if (_jumpRequested)
+        {
+            // Handle double jump
+            if (AllowDoubleJump)
+            {
+                if (_jumpConsumed && !_doubleJumpConsumed && (AllowJumpingWhenSliding ? !Motor.GroundingStatus.FoundAnyGround : !Motor.GroundingStatus.IsStableOnGround))
+                {
+                    Motor.ForceUnground(0.1f);
+
+                    // Add to the return velocity and reset jump state
+                    currentVelocity += (Motor.CharacterUp * JumpSpeed) - Vector3.Project(currentVelocity, Motor.CharacterUp);
+                    _jumpRequested = false;
+                    _doubleJumpConsumed = true;
+                    _jumpedThisFrame = true;
+                }
+            }
+
+            // See if we actually are allowed to jump
+            if (!_jumpConsumed && ((AllowJumpingWhenSliding ? Motor.GroundingStatus.FoundAnyGround : Motor.GroundingStatus.IsStableOnGround) || _timeSinceLastAbleToJump <= JumpPostGroundingGraceTime))
+            {
+                // Calculate jump direction before ungrounding
+                Vector3 jumpDirection = Motor.CharacterUp;
+                if (Motor.GroundingStatus.FoundAnyGround && !Motor.GroundingStatus.IsStableOnGround)
+                {
+                    jumpDirection = Motor.GroundingStatus.GroundNormal;
+                }
+
+                // Makes the character skip ground probing/snapping on its next update. 
+                // If this line weren't here, the character would remain snapped to the ground when trying to jump. Try commenting this line out and see.
+                Motor.ForceUnground(0.1f);
+
+                // Add to the return velocity and reset jump state
+                currentVelocity += (jumpDirection * JumpSpeed) - Vector3.Project(currentVelocity, Motor.CharacterUp);
+                _jumpRequested = false;
+                _jumpConsumed = true;
+                _jumpedThisFrame = true;
+            }
+        }
     }
 
     /// <summary>
@@ -219,9 +304,36 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
         _rootMotionRotationDelta = Quaternion.identity;
 
         if (m_ForwardAmount == 0)
+        {
             rotate = CharacterLookAtMouse();
+        }
         else
+        {
             rotate = GetRotate();
+        }
+            
+        // Handle jump-related values
+        // Handle jumping pre-ground grace period
+        if (_jumpRequested && _timeSinceJumpRequested > JumpPreGroundingGraceTime)
+        {
+            _jumpRequested = false;
+        }
+
+        if (AllowJumpingWhenSliding ? Motor.GroundingStatus.FoundAnyGround : Motor.GroundingStatus.IsStableOnGround)
+        {
+            // If we're on a ground surface, reset jumping values
+            if (!_jumpedThisFrame)
+            {
+                _doubleJumpConsumed = false;
+                _jumpConsumed = false;
+            }
+            _timeSinceLastAbleToJump = 0f;
+        }
+        else
+        {
+            // Keep track of time since we were last able to jump (for grace period)
+            _timeSinceLastAbleToJump += deltaTime;
+        }
     }
 
     public bool IsColliderValidForCollisions(Collider coll)
@@ -271,19 +383,42 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
         // direction.
         if (move.magnitude > 1f) move.Normalize();
         move = transform.InverseTransformDirection(move);
-
+        CheckGroundStatus();
+        move = Vector3.ProjectOnPlane(move, m_GroundNormal);
         m_TurnAmount = Mathf.Atan2(move.x, move.z);
+
+        //if (m_ForwardAmount < 0.99f)
         m_ForwardAmount = move.z;
+        
 
         // send input and other state parameters to the animator
-        UpdateAnimator();
+        UpdateAnimator(move);
     }
-    void UpdateAnimator()
+    void UpdateAnimator(Vector3 move)
     {
         // update the animator parameters
         CharacterAnimator.SetFloat("Forward", m_ForwardAmount, 0.1f, Time.deltaTime);
         CharacterAnimator.SetFloat("Turn", m_TurnAmount, 0.1f, Time.deltaTime);
-        CharacterAnimator.speed = 1;
+        CharacterAnimator.SetBool("OnGround", m_IsGrounded);
+        CharacterAnimator.SetBool("Crouch", m_Crouching);
+        if (m_IsGrounded && m_jumping)
+        {
+            CharacterAnimator.SetTrigger("Jump");
+            CharacterAnimator.SetFloat("Forward", m_ForwardAmount);
+        }
+
+        // the anim speed multiplier allows the overall speed of walking/running to be tweaked in the inspector,
+        // which affects the movement speed because of the root motion.
+        if (m_IsGrounded && move.magnitude > 0)
+        {
+            CharacterAnimator.speed = m_AnimSpeedMultiplier;
+        }
+        else
+        {
+            // don't use that while airborne
+            CharacterAnimator.speed = 1;
+        }
+
     }
     public Quaternion GetRotate()
     {
@@ -295,10 +430,16 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
     // ***Character look at mouse
     public Quaternion CharacterLookAtMouse()
     {
-        Vector3 move = transform.InverseTransformPoint(KinematicPlayerRootMotion.GetResultRaycastHit().point);
-        m_TurnAmount = Mathf.Atan2(move.x, move.z);
-        float turnSpeed = Mathf.Lerp(m_StationaryTurnSpeed, m_MovingTurnSpeed, m_ForwardAmount);
-        return Quaternion.Euler(0, m_TurnAmount * turnSpeed * Time.deltaTime, 0);
+        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        RaycastHit hit;
+        if (Physics.Raycast(ray, out hit, 100f))
+        {
+            Vector3 move = transform.InverseTransformPoint(hit.point);
+            m_TurnAmount = Mathf.Atan2(move.x, move.z);
+            float turnSpeed = Mathf.Lerp(m_StationaryTurnSpeed, m_MovingTurnSpeed, m_ForwardAmount);
+            return Quaternion.Euler(0, m_TurnAmount * turnSpeed * Time.deltaTime, 0);
+        }
+        return Quaternion.identity;
     }
     public void StopMoving()
     {
@@ -307,6 +448,28 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
 
         m_TurnAmount = Mathf.Atan2(stop.x, stop.z);
         m_ForwardAmount = stop.z;
-        UpdateAnimator();
+        UpdateAnimator(stop);
+    }
+    void CheckGroundStatus()
+    {
+        RaycastHit hitInfo;
+#if UNITY_EDITOR
+        // helper to visualise the ground check ray in the scene view
+        Debug.DrawLine(transform.position + (Vector3.up * 0.1f), transform.position + (Vector3.up * 0.1f) + (Vector3.down * m_GroundCheckDistance));
+#endif
+        // 0.1f is a small offset to start the ray from inside the character
+        // it is also good to note that the transform position in the sample assets is at the base of the character
+        if (Physics.Raycast(transform.position + (Vector3.up * 0.1f), Vector3.down, out hitInfo, m_GroundCheckDistance))
+        {
+            m_GroundNormal = hitInfo.normal;
+            m_IsGrounded = true;
+            CharacterAnimator.applyRootMotion = true;
+        }
+        else
+        {
+            m_IsGrounded = false;
+            m_GroundNormal = Vector3.up;
+            CharacterAnimator.applyRootMotion = false;
+        }
     }
 }

@@ -21,42 +21,41 @@ public class KinematicPlayerRootMotion : MonoBehaviour
     public float timeTakenDuringLerp = 1f;
 
     public float distanceToMove = 10;
-    private bool isLerping;
-    private Quaternion startPosition;
-    private Quaternion endPosition;
-    private Quaternion rotationAngle;
-    private float timeStartedLerping;
-    private Ray ray;
-    private bool mouseClick;
+    //private bool isLerping;
+    //private Quaternion startPosition;
+    //private Quaternion endPosition;
+    //private Quaternion rotationAngle;
+    //private float timeStartedLerping;
+    //private Ray ray;
+
+    private bool m_Crouching = false;
     private void Start()
     {
     }
 
     private void Update()
     {
-        GetRaycastHit();
-        DetectMouseMovement();
+        //GetRaycastHit();
+        //DetectMouseMovement();
         HandleCharacterInput();
-
-        mouseClick = false;
     }
 
-    void FixedUpdate()
-    {
-        if (isLerping)
-        {
-            float timeSinceStarted = Time.time - timeStartedLerping;
-            float percentageComplete = timeSinceStarted / timeTakenDuringLerp;
+    //void FixedUpdate()
+    //{
+    //    if (isLerping)
+    //    {
+    //        float timeSinceStarted = Time.time - timeStartedLerping;
+    //        float percentageComplete = timeSinceStarted / timeTakenDuringLerp;
 
-            rotationAngle = Quaternion.Lerp(startPosition, endPosition, percentageComplete);
+    //        rotationAngle = Quaternion.Lerp(startPosition, endPosition, percentageComplete);
 
-            //When we've completed the lerp, we set _isLerping to false
-            if (percentageComplete >= 1.0f)
-            {
-                isLerping = false;
-            }
-        }
-    }
+    //        //When we've completed the lerp, we set _isLerping to false
+    //        if (percentageComplete >= 1.0f)
+    //        {
+    //            isLerping = false;
+    //        }
+    //    }
+    //}
     private void HandleCharacterInput()
     {
         PlayerCharacterInputsRootMotion characterInputs = new PlayerCharacterInputsRootMotion();
@@ -66,19 +65,24 @@ public class KinematicPlayerRootMotion : MonoBehaviour
         characterInputs.MoveAxisRight = Input.GetAxisRaw(HorizontalInput);
         //characterInputs.CameraRotation = OrbitCamera.Transform.rotation;
         characterInputs.JumpDown = Input.GetKeyDown(KeyCode.Space);
-        
-        // ***Get Physics.Raycast hit.point
-        characterInputs.Destination = GetHitPointFromMouse();
-        // ***Get rotation angle
-        characterInputs.Rotation = rotationAngle;
 
-        characterInputs.MoveToPosition = hit;
-        characterInputs.WalkSpeed = runSpeed;
-        characterInputs.MouseClick = mouseClick;
+        // ***Get Physics.Raycast hit.point
+        //characterInputs.Destination = GetHitPointFromMouse();
+        // ***Get rotation angle
+        //characterInputs.Rotation = rotationAngle;
+
+        //characterInputs.MoveToPosition = hit;
+        //characterInputs.WalkSpeed = runSpeed;
+        //characterInputs.MouseClick = mouseClick;
 
         // ***Crouch
-        characterInputs.CrouchDown = Input.GetKeyDown(KeyCode.C);
-        characterInputs.CrouchUp = Input.GetKeyUp(KeyCode.C);
+        if (Input.GetKeyDown(KeyCode.C))
+        {
+            m_Crouching = !m_Crouching;
+        }
+        characterInputs.Crouch = m_Crouching;
+        //characterInputs.CrouchDown = Input.GetKeyDown(KeyCode.C);
+        //characterInputs.CrouchUp = Input.GetKeyUp(KeyCode.C);
         // Apply inputs to character
         Character.SetInputs(ref characterInputs);
     }
@@ -87,71 +91,105 @@ public class KinematicPlayerRootMotion : MonoBehaviour
 
 
 
-    public void GetRaycastHit()
-    {
-        if (Input.GetMouseButton(0))
-        {
-            mouseClick = true;
-            
-            Ray ray2 = Camera.main.ScreenPointToRay(Input.mousePosition);
-            Physics.Raycast(ray2, out hit);
-        }
-    }
+    //public void GetRaycastHit()
+    //{
+    //    if (Input.GetMouseButton(0))
+    //    {
+    //        Ray ray2 = Camera.main.ScreenPointToRay(Input.mousePosition);
+    //        if(Physics.Raycast(ray2, out hit))
+    //        {
+    //            // ***Calculate direction from tranform to mouse click
+    //            Vector3 direction = hit.point - Character.transform.position; // hit.point.magnitude == 0 ? hit.point :
 
-    public Vector3 GetHitPointFromMouse()
-    {
-        // ***Calculate direction from tranform to mouse click
-        Vector3 direction = hit.point.magnitude == 0 ? hit.point : hit.point - Character.transform.position;
+    //            // ***Rotate only y axis
+    //            lookAtRotationOnly_Y = Quaternion.Euler(Character.transform.rotation.eulerAngles.x, Quaternion.LookRotation(direction).eulerAngles.y, Character.transform.rotation.eulerAngles.z);
+    //        }
+    //    }
+    //}
+    //public Quaternion DetectMouseMovement()
+    //{
+    //    if (Input.GetAxis("Mouse X") < 0 || Input.GetAxis("Mouse X") > 0)
+    //    {
+    //        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+    //        // ***Set raycast hit for character rotation.
+    //        if (Physics.Raycast(ray, out hit))
+    //        {
+    //            Quaternion targetRotation = Quaternion.identity;
+    //            Vector3 targetPoint = hit.point;
+    //            targetRotation = Quaternion.LookRotation(targetPoint - Character.transform.position);
 
-        // ***Rotate only y axis
-        lookAtRotationOnly_Y = Quaternion.Euler(Character.transform.rotation.eulerAngles.x, Quaternion.LookRotation(direction).eulerAngles.y, Character.transform.rotation.eulerAngles.z);
-        return hit.point;
-    }
+    //            StartLerping();
+    //            return targetRotation;
+    //        }
+    //    }
 
-    public void DetectMouseMovement()
-    {
-        if (Input.GetAxis("Mouse X") < 0 || Input.GetAxis("Mouse X") > 0) 
-        {
-            ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-            // ***Set raycast hit for character rotation.
-            Physics.Raycast(ray, out hit);
+    //    return Quaternion.identity;
+    //}
+    //public Vector3 GetHitPointFromMouse()
+    //{
+    //    // ***Calculate direction from tranform to mouse click
+    //    Vector3 direction = Vector3.zero;
+    //    direction = hit.point - Character.transform.position; // hit.point.magnitude == 0 ? hit.point :
 
-            StartLerping();
-        }
-    }
-    public Quaternion GetRotation()
-    {
-        Plane playerPlane = new Plane(Vector3.up, Character.transform.position);
-        float hitDist = 0f;
-        Quaternion targetRotation = Quaternion.identity;
+    //    // ***Rotate only y axis
 
-        if (playerPlane.Raycast(ray, out hitDist))
-        {
-            Vector3 targetPoint = ray.GetPoint(hitDist);
-            targetRotation = Quaternion.LookRotation(targetPoint - Character.transform.position);
-            targetPoint.x = 0;
-            targetPoint.z = 0;
-        }
-        return targetRotation;
-    }
+    //    lookAtRotationOnly_Y = Quaternion.Euler(Character.transform.rotation.eulerAngles.x, Quaternion.LookRotation(direction).eulerAngles.y, Character.transform.rotation.eulerAngles.z);
+    //    return hit.point;
+    //}
 
-    void StartLerping()
-    {
-        isLerping = true;
-        timeStartedLerping = Time.time;
+    //public void DetectMouseMovement()
+    //{
+    //    if (Input.GetAxis("Mouse X") < 0 || Input.GetAxis("Mouse X") > 0) 
+    //    {
+    //        ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+    //        // ***Set raycast hit for character rotation.
+    //        Physics.Raycast(ray, out hit);
 
-        //We set the start position to the current position, and the finish to 10 spaces in the 'forward' direction
-        startPosition = Character.transform.rotation;
-        endPosition = GetRotation();
-    }
+    //        StartLerping();
+    //    }
+    //}
 
-    public Quaternion GetResultRotation()
-    {
-        return rotationAngle;
-    }
+    //public Quaternion GetRotation()
+    //{
+    //    Plane playerPlane = new Plane(Vector3.up, Character.transform.position);
+    //    float hitDist = 0f;
+    //    Quaternion targetRotation = Quaternion.identity;
 
-    public RaycastHit GetResultRaycastHit()
-    {
-        return hit;
-    }
+    //    if (playerPlane.Raycast(ray, out hitDist))
+    //    {
+    //        Vector3 targetPoint = ray.GetPoint(hitDist);
+    //        targetRotation = Quaternion.LookRotation(targetPoint - Character.transform.position);
+    //        targetPoint.x = 0;
+    //        targetPoint.z = 0;
+    //    }
+    //    return targetRotation;
+    //}
+
+    //void StartLerping()
+    //{
+    //    isLerping = true;
+    //    timeStartedLerping = Time.time;
+
+    //    //We set the start position to the current position, and the finish to 10 spaces in the 'forward' direction
+    //    startPosition = Character.transform.rotation;
+    //    endPosition = GetRotation();
+    //}
+    //void StartLerping()
+    //{
+    //    isLerping = true;
+    //    timeStartedLerping = Time.time;
+
+    //    //We set the start position to the current position, and the finish to 10 spaces in the 'forward' direction
+    //    startPosition = Character.transform.rotation;
+    //    endPosition = DetectMouseMovement();
+    //}
+    //public Quaternion GetResultRotation()
+    //{
+    //    return rotationAngle;
+    //}
+
+    //public RaycastHit GetResultRaycastHit()
+    //{
+    //    return hit;
+    //}
 }
