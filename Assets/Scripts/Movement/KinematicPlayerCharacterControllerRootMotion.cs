@@ -104,6 +104,7 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
     bool m_jumping;
     [SerializeField] float m_GroundCheckDistance = 0.2f;
     [SerializeField] float m_AnimSpeedMultiplier = 1f;
+    
     private void Awake()
     {
     }
@@ -388,7 +389,8 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
         m_TurnAmount = Mathf.Atan2(move.x, move.z);
 
         //if (m_ForwardAmount < 0.99f)
-        m_ForwardAmount = move.z;
+        //Debug.Log(move.z);
+        m_ForwardAmount = Mathf.Clamp(move.z, 0f, 0.75f);
         
 
         // send input and other state parameters to the animator
@@ -398,13 +400,27 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
     {
         // update the animator parameters
         CharacterAnimator.SetFloat("Forward", m_ForwardAmount, 0.1f, Time.deltaTime);
+        if(m_ForwardAmount <= 0)
+        {
+            CharacterAnimator.SetFloat("Idle_Random", KinematicPlayerRootMotion.GetRandomStandNumber(), 0.5f, Time.deltaTime);
+        }
+
         CharacterAnimator.SetFloat("Turn", m_TurnAmount, 0.1f, Time.deltaTime);
         CharacterAnimator.SetBool("OnGround", m_IsGrounded);
         CharacterAnimator.SetBool("Crouch", m_Crouching);
+        if (m_Crouching == true)
+        {
+            CharacterAnimator.SetFloat("Idle_Random", KinematicPlayerRootMotion.GetRandomCrouchNumber(), 0.1f, Time.deltaTime);
+        }
+
+
         if (m_IsGrounded && m_jumping)
         {
             CharacterAnimator.SetTrigger("Jump");
-            CharacterAnimator.SetFloat("Forward", m_ForwardAmount);
+            if (m_ForwardAmount == 1) CharacterAnimator.SetFloat("JumpState", 3);
+            else if (m_ForwardAmount >= 0.75f) CharacterAnimator.SetFloat("JumpState", 2);
+            else if (m_ForwardAmount >= 0.50f) CharacterAnimator.SetFloat("JumpState", 1);
+            else CharacterAnimator.SetFloat("JumpState", 0);
         }
 
         // the anim speed multiplier allows the overall speed of walking/running to be tweaked in the inspector,
@@ -472,4 +488,5 @@ public class KinematicPlayerCharacterControllerRootMotion : MonoBehaviour, IChar
             CharacterAnimator.applyRootMotion = false;
         }
     }
+    
 }

@@ -29,6 +29,20 @@ public class KinematicPlayerRootMotion : MonoBehaviour
     //private Ray ray;
 
     private bool m_Crouching = false;
+    [Range(0,10)]
+    [SerializeField]
+    private int idleCrouchAnimCount = 2;
+    [Range(0, 10)]
+    [SerializeField]
+    private int idleStandAnimCount = 6;
+    [SerializeField]
+    private float coolDownRandomIdleTime = 7f;
+    [SerializeField]
+    private float coolDownRandomStandTime = 5f;
+    private float timeSinceRandomCrouch;
+    private float timeSinceRandomStand;
+    private float randomCrouchNumber;
+    private float randomStandNumber;
     private void Start()
     {
     }
@@ -78,8 +92,26 @@ public class KinematicPlayerRootMotion : MonoBehaviour
         // ***Crouch
         if (Input.GetKeyDown(KeyCode.C))
         {
+            timeSinceRandomCrouch = Time.time + coolDownRandomIdleTime;
             m_Crouching = !m_Crouching;
         }
+
+        if (m_Crouching)
+        {
+            if (Time.time >= timeSinceRandomCrouch)
+            {
+                randomCrouchNumber = (float)Random.Range(0, idleCrouchAnimCount);
+                SetCooldownCrouchTime();
+            }
+        }
+
+        if (Time.time >= timeSinceRandomStand)
+        {
+            randomStandNumber = (float)Random.Range(0, idleStandAnimCount);
+            SetCooldownStandTime();
+        }
+        
+
         characterInputs.Crouch = m_Crouching;
         //characterInputs.CrouchDown = Input.GetKeyDown(KeyCode.C);
         //characterInputs.CrouchUp = Input.GetKeyUp(KeyCode.C);
@@ -87,9 +119,31 @@ public class KinematicPlayerRootMotion : MonoBehaviour
         Character.SetInputs(ref characterInputs);
     }
 
+    public float GetRandomCrouchNumber()
+    {
+        return randomCrouchNumber;
+    }
+    public float GetCooldownCrouchTime()
+    {
+        return timeSinceRandomCrouch;
+    }
+    public void SetCooldownCrouchTime()
+    {
+        timeSinceRandomCrouch = Time.time + coolDownRandomIdleTime;
+    }
 
-
-
+    public float GetRandomStandNumber()
+    {
+        return randomStandNumber;
+    }
+    public float GetCooldownStandTime()
+    {
+        return timeSinceRandomStand;
+    }
+    public void SetCooldownStandTime()
+    {
+        timeSinceRandomStand = Time.time + coolDownRandomStandTime;
+    }
 
     //public void GetRaycastHit()
     //{

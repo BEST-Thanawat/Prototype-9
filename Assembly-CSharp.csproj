@@ -63,6 +63,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets\AddForce.cs" />
     <Compile Include="Assets\Assets Packs\KinematicCharacterController\Core\ICharacterController.cs" />
     <Compile Include="Assets\Assets Packs\KinematicCharacterController\Core\IMoverController.cs" />
     <Compile Include="Assets\Assets Packs\KinematicCharacterController\Core\KinematicCharacterMotor.cs" />
