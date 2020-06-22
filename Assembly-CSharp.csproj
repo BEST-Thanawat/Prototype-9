@@ -116,6 +116,9 @@
     <Compile Include="Assets\Scripts\Movement\TestMover.cs" />
     <Compile Include="Assets\Scripts\Movement\ThirdPersonCharacter.cs" />
     <Compile Include="Assets\Scripts\Objective.cs" />
+    <Compile Include="Assets\Scripts\Stealth\GameUI.cs" />
+    <Compile Include="Assets\Scripts\Stealth\Guard.cs" />
+    <Compile Include="Assets\Scripts\Stealth\Player.cs" />
     <Compile Include="Assets\Scripts\UI\BasicButton.cs" />
     <Compile Include="Assets\Scripts\UI\Popup.cs" />
     <Compile Include="Assets\Scripts\UI\PopupOpener.cs" />
